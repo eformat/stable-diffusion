@@ -78,4 +78,4 @@ ENV CLI_ARGS=""
 EXPOSE 7860
 ENTRYPOINT ["/opt/entrypoint.sh"]
 # run, -u to not buffer stdout / stderr
-CMD python3 -u /stable-diffusion-webui/webui.py --listen --port 7860 --ckpt-dir ${ROOT}/models/Stable-diffusion ${CLI_ARGS}
+CMD python3 -u /stable-diffusion-webui/webui.py --share --listen --port 7860 --ckpt-dir ${ROOT}/models/Stable-diffusion ${CLI_ARGS}
