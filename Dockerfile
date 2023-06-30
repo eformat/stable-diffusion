@@ -1,5 +1,5 @@
 # FIXME this base downloader image is just cause its got git etc setup but its bloated
-FROM quay.io/rht-labs/stack-tl500:3.0.16 as download
+FROM quay.io/rht-labs/stack-tl500:3.0.18 as download
 
 WORKDIR /projects
 
@@ -18,30 +18,23 @@ RUN ./clone.sh BLIP https://github.com/salesforce/BLIP.git 48211a1594f1321b00f14
 RUN ./clone.sh k-diffusion https://github.com/crowsonkb/k-diffusion.git 60e5042ca0da89c14d1dd59d73883280f8fce991
 RUN ./clone.sh clip-interrogator https://github.com/pharmapsychotic/clip-interrogator 2486589f24165c8e3b303f84e9dbbea318df83e8
 
-# fc36 base from here on
-FROM quay.io/fedora/fedora:36 as xformers
-RUN dnf -y install aria2
-RUN aria2c --dir / --out wheel.whl 'https://github.com/AbdBarho/stable-diffusion-webui-docker/releases/download/2.1.0/xformers-0.0.14.dev0-cp310-cp310-linux_x86_64.whl'
-
-FROM quay.io/fedora/fedora:36
+FROM quay.io/fedora/fedora:38
 
 # this will depend on your gpu card
-# Use f35 repo. There is also a f36 repo that is known not to work.
 RUN dnf -y install 'dnf-command(config-manager)' \
-    && dnf -y config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/fedora35/x86_64/cuda-fedora35.repo
+    && dnf -y config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/fedora37/x86_64/cuda-fedora37.repo
 RUN dnf -y install nvidia-driver-cuda
 
 RUN dnf -y install python3-pip
 ENV PIP_PREFER_BINARY=1 PIP_NO_CACHE_DIR=1
-RUN pip install torch==1.12.1+cu113 torchvision==0.13.1+cu113 --extra-index-url https://download.pytorch.org/whl/cu113
-RUN dnf -y install dejavu-* rsync git jq moreutils && dnf clean all
+RUN pip install torch==2.0.1 torchvision==0.15.2
+RUN dnf -y install dejavu-* rsync git jq moreutils gcc g++ python3-devel rust cargo openssl-devel && dnf clean all
 
 RUN git clone https://github.com/AUTOMATIC1111/stable-diffusion-webui.git \
   && cd stable-diffusion-webui && git reset --hard d885a4a57b72152745ca76192ef1bdda29e6461d \
   && pip install -r requirements_versions.txt && cd ../
 
-COPY --from=xformers /wheel.whl /xformers-0.0.14.dev0-cp310-cp310-linux_x86_64.whl
-RUN pip install /xformers-0.0.14.dev0-cp310-cp310-linux_x86_64.whl && rm -f /xformers-0.0.14.dev0-cp310-cp310-linux_x86_64.whl
+RUN pip install xformers==0.0.20
 
 ENV ROOT=/stable-diffusion-webui
 
@@ -67,6 +60,8 @@ RUN pip install opencv-python-headless \
   git+https://github.com/openai/CLIP.git@d50d76daa670286dd6cacf3bcd80b5e4823fc8e1 \
   pyngrok
 
+RUN pip install --upgrade fastapi==0.90.1
+
 COPY entrypoint.sh info.py config.json /opt
 
 RUN python3 /opt/info.py ${ROOT}/modules/ui.py
@@ -77,5 +72,5 @@ WORKDIR ${ROOT}/stable-diffusion
 ENV CLI_ARGS=""
 EXPOSE 7860
 ENTRYPOINT ["/opt/entrypoint.sh"]
-COPY hacks/blocks.py /usr/local/lib/python3.10/site-packages/gradio/blocks.py
+COPY hacks/blocks.py /usr/local/lib/python3.11/site-packages/gradio/blocks.py
 CMD python3 -u /stable-diffusion-webui/webui.py --server-name 0.0.0.0 --listen --port 7860 --ckpt-dir ${ROOT}/models/Stable-diffusion ${CLI_ARGS}

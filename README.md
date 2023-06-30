@@ -1,70 +1,65 @@
 # stable-diffusion
 
-Stable diffusion built using podman based on `quay.io/fedora/fedora:36`
+Stable diffusion built using podman based on `quay.io/fedora/fedora:38`
 
 ![images/stable-diffusion.png](images/stable-diffusion.png)
+
+There are older instructions based on [fedora:36](./README-fc36.md) if you need them.
 
 ## Prerequisites
 
 - a working nvidia GPU with cuda (the stable diffusion model uses torch with cuda python libs)
 
-I have a dell-xps-15 that is not new (4 years old at least), and my setup looks like this:
+I have a new dell-xps-15 9530, and my setup looks like this:
 
 ```bash
-$ lspci | egrep -i 'nvidia|VGA'
-00:02.0 VGA compatible controller: Intel Corporation HD Graphics 630 (rev 04)
-01:00.0 3D controller: NVIDIA Corporation GP107M [GeForce GTX 1050 Mobile] (rev a1)
+$ lspci | grep -Ei 'nvidia|VGA'
+0000:00:02.0 VGA compatible controller: Intel Corporation Raptor Lake-P [Iris Xe Graphics] (rev 04)
+0000:01:00.0 3D controller: NVIDIA Corporation AD106M [GeForce RTX 4070 Max-Q / Mobile] (rev a1)
 ```
 
-Note that i do not use the NVIDIA GPU for video (intel i915 gpu is fine for that). So i blacklist `nvidia, nvidia_drm` on boot and load it later. I use `dkms` and not the `akmod` kernel modules for this reason.
-
-I use the f35 repo running fc36. There is also a f36 repo that is known not to work! be warned ... Nvidia and Cuda Setup, the abbreviated version.
+I have Wayland with NVIDIA GPU for video using dkms at boot. I use the f37 repo for the proprietary cuda/nvidia drivers, but run fc38. It normally takes several months for NVIDIA to come up to speed for new releases.
 
 ```bash
 # this gets me the latest nvidia driver
-dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/fedora35/x86_64/cuda-fedora35.repo
+dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/fedora37/x86_64/cuda-fedora37.repo
 dnf -y module install nvidia-driver:latest-dkms
 dnf -y install cuda
-dkms install -m nvidia -v 515.48.07
-# i also need this cause my nvidia card is older
-dnf -y install https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
-dnf -y install xorg-x11-drv-nvidia-470xx-cuda
 ```
 
 You can check everything works before you start, try this locally
 
 ```bash
-python3.10 -c "import torch; print(torch.cuda.is_available())"
+python3.11 -c "import torch; print(torch.cuda.is_available())"
 ```
 
-- podman with oci-hook configured properly for nvidia
+- podman with oci-hook configured properly for [nvidia](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
 
-Nothing fancy here, this is older gpu with only 4GB RAM.
+Nothing too fancy here:
 
 ```bash
-podman run --rm --security-opt=label=disable --hooks-dir=/usr/share/containers/oci/hooks.d/ docker.io/nvidia/cuda:11.2.2-base-ubi8 /usr/bin/nvidia-smi
+podman run --rm -it --security-opt=label=disable docker.io/nvidia/cuda:12.1.0-base-ubi8 nvidia-smi
 
 
-Wed Nov 23 05:21:19 2022
-+-----------------------------------------------------------------------------+
-| NVIDIA-SMI 520.61.05    Driver Version: 520.61.05    CUDA Version: 11.8     |
-|-------------------------------+----------------------+----------------------+
-| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
-| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
-|                               |                      |               MIG M. |
-|===============================+======================+======================|
-|   0  NVIDIA GeForce ...  Off  | 00000000:01:00.0 Off |                  N/A |
-| N/A   56C    P8    N/A /  N/A |      0MiB /  4096MiB |      0%      Default |
-|                               |                      |                  N/A |
-+-------------------------------+----------------------+----------------------+
-                                                                               
-+-----------------------------------------------------------------------------+
-| Processes:                                                                  |
-|  GPU   GI   CI        PID   Type   Process name                  GPU Memory |
-|        ID   ID                                                   Usage      |
-|=============================================================================|
-|  No running processes found                                                 |
-+-----------------------------------------------------------------------------+
+Fri Jun 30 06:51:37 2023
++---------------------------------------------------------------------------------------+
+| NVIDIA-SMI 535.54.03              Driver Version: 535.54.03    CUDA Version: 12.2     |
+|-----------------------------------------+----------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |         Memory-Usage | GPU-Util  Compute M. |
+|                                         |                      |               MIG M. |
+|=========================================+======================+======================|
+|   0  NVIDIA GeForce RTX 4070 ...    On  | 00000000:01:00.0 Off |                  N/A |
+| N/A   46C    P3              N/A /  35W |      5MiB /  8188MiB |      0%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+                                                                                         
++---------------------------------------------------------------------------------------+
+| Processes:                                                                            |
+|  GPU   GI   CI        PID   Type   Process name                            GPU Memory |
+|        ID   ID                                                             Usage      |
+|=======================================================================================|
++---------------------------------------------------------------------------------------+
 ```
 
 ## Build the OCI Image
@@ -79,7 +74,7 @@ dnf -q install aria2
 Build the container  using podman
 
 ```bash
-make build
+make podman-build
 ```
 
 Run it
